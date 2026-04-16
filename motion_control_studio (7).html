@@ -30,7 +30,56 @@
     --radius-lg: 16px;
   }
 
-  html { background: var(--bg); color: var(--text); min-height: 100vh; }
+  html, body { height: 100%; overflow: hidden; }
+
+  /* TWO COLUMN LAYOUT */
+  .app-layout {
+    display: grid;
+    grid-template-columns: 420px 1fr;
+    height: calc(100vh - 60px);
+    overflow: hidden;
+  }
+
+  .panel-left {
+    padding: 20px;
+    overflow-y: auto;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .panel-left::-webkit-scrollbar { width: 4px; }
+  .panel-left::-webkit-scrollbar-track { background: transparent; }
+  .panel-left::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  .panel-right {
+    display: flex;
+    flex-direction: column;
+    background: #080808;
+  }
+
+  .result-panel {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+  }
+
+  .result-panel video {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: 12px;
+  }
+
+  .result-empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+  }
 
   body {
     font-family: 'Barlow', sans-serif;
@@ -646,143 +695,116 @@
     <span class="nav-logo-text">Motion Dark</span>
   </a>
   <div class="nav-right">
-    <div class="nav-status">
-      <div class="status-dot"></div>
-      Automação Ativa
-    </div>
+    <div class="nav-status"><div class="status-dot"></div>Automação Ativa</div>
     <div class="nav-badge">Motion Control</div>
   </div>
 </nav>
 
-<main>
+<div class="app-layout">
 
-  <div class="page-header">
+  <!-- LEFT PANEL: CONTROLS -->
+  <div class="panel-left">
+
     <div class="page-tag"><span></span>Kling AI via fal.ai · v2.6 / v3.0</div>
-    <h1 class="page-title">Motion<br><em>Control Studio</em></h1>
-    <p class="page-sub">Aplique os movimentos de um vídeo de referência a qualquer personagem com precisão cinematográfica.</p>
-  </div>
 
-  <!-- UPLOADS -->
-  <div class="section-label">Arquivos de entrada</div>
-  <div class="upload-grid">
-    <div class="upload-zone" id="imgZone">
-      <input type="file" accept="image/jpeg,image/png,image/webp" id="imgInput" onchange="handleImg(event)">
-      <div class="upload-icon-wrap" id="imgIcon">
-        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+    <!-- UPLOADS -->
+    <div class="section-label">Arquivos de entrada</div>
+    <div class="upload-grid">
+      <div class="upload-zone" id="imgZone">
+        <input type="file" accept="image/jpeg,image/png,image/webp" id="imgInput" onchange="handleImg(event)">
+        <div class="upload-icon-wrap" id="imgIcon">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+        </div>
+        <span class="upload-label" id="imgLabel">Personagem</span>
+        <span class="upload-hint" id="imgHint">JPG · PNG · WEBP</span>
       </div>
-      <span class="upload-label" id="imgLabel">Imagem do personagem</span>
-      <span class="upload-hint" id="imgHint">JPG · PNG · WEBP · até 10 MB</span>
-    </div>
-    <div class="upload-zone" id="vidZone">
-      <input type="file" accept="video/mp4,video/quicktime,video/x-matroska" id="vidInput" onchange="handleVid(event)">
-      <div class="upload-icon-wrap" id="vidIcon">
-        <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+      <div class="upload-zone" id="vidZone">
+        <input type="file" accept="video/mp4,video/quicktime,video/x-matroska" id="vidInput" onchange="handleVid(event)">
+        <div class="upload-icon-wrap" id="vidIcon">
+          <svg viewBox="0 0 24 24"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        </div>
+        <span class="upload-label" id="vidLabel">Vídeo ref.</span>
+        <span class="upload-hint" id="vidHint">MP4 · MOV · 3–30s</span>
       </div>
-      <span class="upload-label" id="vidLabel">Vídeo de referência</span>
-      <span class="upload-hint" id="vidHint">MP4 · MOV · 3–30 s · até 100 MB</span>
     </div>
-  </div>
 
-  <!-- PROMPT -->
-  <div class="field">
-    <label class="field-label" for="prompt">Prompt descritivo</label>
-    <textarea id="prompt" rows="3" placeholder="Ex: uma dançarina num palco iluminado, fundo escuro, estilo cinematográfico…"></textarea>
-  </div>
+    <!-- CONFIG ROW -->
+    <div class="config-grid">
+      <div class="config-box">
+        <span class="field-label">Modelo</span>
+        <select id="modelSelect" onchange="updateCost()">
+          <option value="std">Kling 2.6 Standard</option>
+          <option value="pro">Kling 2.6 Pro</option>
+          <option value="std3">Kling 3.0 Standard</option>
+          <option value="pro3">Kling 3.0 Pro</option>
+        </select>
+      </div>
+      <div class="config-box">
+        <span class="field-label">Duração</span>
+        <select id="durSelect" onchange="updateCost()">
+          <option value="5">5 segundos</option>
+          <option value="10" selected>10 segundos</option>
+        </select>
+      </div>
+    </div>
 
-  <!-- CONFIG -->
-  <div class="section-label">Configurações</div>
-  <div class="config-grid">
-    <div class="config-box">
-      <span class="field-label">Modelo</span>
-      <select id="modelSelect" onchange="updateCost()">
-        <option value="std">Kling 2.6 Standard</option>
-        <option value="pro">Kling 2.6 Pro</option>
-        <option value="std3">Kling 3.0 Standard</option>
-        <option value="pro3">Kling 3.0 Pro</option>
-      </select>
-    </div>
-    <div class="config-box">
-      <span class="field-label">Duração</span>
-      <select id="durSelect" onchange="updateCost()">
-        <option value="5">5 segundos</option>
-        <option value="10" selected>10 segundos</option>
-      </select>
-    </div>
-    <div class="config-box" style="grid-column: 1 / -1;">
-      <span class="field-label">Orientação do personagem</span>
+    <!-- ORIENTATION -->
+    <div class="config-box" style="margin-bottom:12px;">
+      <span class="field-label">Orientação</span>
       <div class="orient-wrap">
         <button class="orient-btn active" onclick="setOrient('video',this)">Seguir vídeo (30s)</button>
         <button class="orient-btn" onclick="setOrient('image',this)">Seguir imagem (10s)</button>
       </div>
     </div>
-  </div>
 
-  <!-- NEGATIVE PROMPT TOGGLE -->
-  <div class="toggle-field" onclick="toggleNeg()">
-    <div>
-      <div class="toggle-field-label">Prompt negativo</div>
-      <div class="toggle-field-sub">Descreva o que não quer ver no vídeo</div>
-    </div>
-    <button class="toggle" id="negToggle"></button>
-  </div>
-  <div class="neg-area" id="negArea">
+    <!-- PROMPT -->
     <div class="field">
-      <label class="field-label" for="negPrompt">Prompt negativo</label>
-      <textarea id="negPrompt" rows="2" placeholder="Ex: desfoque, baixa qualidade, artefatos…"></textarea>
+      <label class="field-label" for="prompt">Prompt (opcional)</label>
+      <textarea id="prompt" rows="2" placeholder="Ex: fundo escuro, estilo cinematográfico…"></textarea>
     </div>
-  </div>
 
-  <div class="sep"></div>
-
-  <!-- COST -->
-  <div class="cost-row">
-    <div>
-      <div class="cost-meta">Custo estimado</div>
-      <div class="cost-detail" id="costDetail">Kling 2.6 Standard · 10 s</div>
+    <!-- NEGATIVE TOGGLE -->
+    <div class="toggle-field" onclick="toggleNeg()">
+      <div class="toggle-field-label">Prompt negativo</div>
+      <button class="toggle" id="negToggle"></button>
     </div>
-    <div class="cost-num" id="costValue">~$0.70</div>
-  </div>
-
-  <!-- API KEY HIDDEN -->
-  <input type="hidden" id="apiKey" value="ba75c324-91b1-4209-92ef-a671138817c4:d513693d45cd2120b555fae52127eef6">
-
-  <!-- GENERATE -->
-  <button class="gen-btn" id="genBtn" onclick="generate()">
-    <svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
-    Gerar Vídeo Agora
-  </button>
-
-  <!-- PROGRESS -->
-  <div class="progress-bar-wrap" id="progressWrap">
-    <div class="progress-bar" id="progressBar"></div>
-  </div>
-
-  <!-- RESULT -->
-  <div class="result" id="resultArea">
-    <span class="status" id="statusMsg">Os vídeos gerados aparecerão aqui</span>
-  </div>
-
-  <!-- AUTO REPAIR CARD -->
-  <div class="info-card">
-    <div class="info-card-icon">
-      <svg viewBox="0 0 24 24"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+    <div class="neg-area" id="negArea">
+      <textarea id="negPrompt" rows="2" placeholder="Ex: desfoque, baixa qualidade…" style="margin-bottom:8px"></textarea>
     </div>
-    <div>
-      <div class="info-card-title">Motion Dark Auto-Repair</div>
-      <div class="info-card-body">Monitoramento preditivo de erros. Qualquer instabilidade é corrigida instantaneamente pela nossa IA central.</div>
-      <div class="info-badges">
-        <div class="badge"><span></span>99.9% Uptime</div>
-        <div class="badge"><span></span>Auto-Patched</div>
-        <div class="badge"><span></span>Fal.ai · Kling AI</div>
+
+    <!-- COST + GENERATE -->
+    <div class="cost-row">
+      <div>
+        <div class="cost-meta">Custo estimado</div>
+        <div class="cost-detail" id="costDetail">Kling 2.6 Standard · 10 s</div>
+      </div>
+      <div class="cost-num" id="costValue">~$0.70</div>
+    </div>
+
+    <input type="hidden" id="apiKey" value="ba75c324-91b1-4209-92ef-a671138817c4:d513693d45cd2120b555fae52127eef6">
+
+    <button class="gen-btn" id="genBtn" onclick="generate()">
+      <svg viewBox="0 0 24 24"><path d="M5 3l14 9-14 9V3z"/></svg>
+      Gerar Vídeo Agora
+    </button>
+
+    <div class="progress-bar-wrap" id="progressWrap">
+      <div class="progress-bar" id="progressBar"></div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT PANEL: RESULT -->
+  <div class="panel-right">
+    <div class="result-panel" id="resultArea">
+      <div class="result-empty">
+        <svg viewBox="0 0 24 24" style="width:40px;height:40px;stroke:var(--text-dim);fill:none;stroke-width:1.5;stroke-linecap:round"><polygon points="23 7 16 12 23 17 23 7"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+        <span class="status" id="statusMsg">O vídeo gerado aparecerá aqui</span>
       </div>
     </div>
   </div>
 
-</main>
-
-<footer>
-  MADE BY MOTION DARK · MOTION CONTROL STUDIO · POWERED BY KLING AI VIA FAL.AI
-</footer>
+</div>
 
 <script type="module">
 import { fal } from 'https://esm.sh/@fal-ai/client@1';
@@ -859,11 +881,11 @@ function handleVid(e) {
 
 function setStatus(msg, isError) {
   const el = document.getElementById('statusMsg');
-  el.textContent = msg;
-  el.className = 'status' + (isError ? ' error' : '');
+  if (el) { el.textContent = msg; el.className = 'status' + (isError ? ' error' : ''); }
   const area = document.getElementById('resultArea');
-  area.innerHTML = '';
-  area.appendChild(el);
+  if (area && !area.querySelector('video')) {
+    area.innerHTML = '<div class="result-empty"><span class="status' + (isError ? ' error' : '') + '">' + msg + '</span></div>';
+  }
 }
 
 function startProgress() {
@@ -940,7 +962,7 @@ async function generate() {
     const videoUrl = result?.data?.video?.url || result?.video?.url;
     if (videoUrl) {
       document.getElementById('resultArea').innerHTML =
-        '<video controls autoplay loop style="width:100%;border-radius:8px" src="' + videoUrl + '"></video>';
+        '<video controls autoplay loop style="width:100%;height:100%;object-fit:contain;border-radius:12px" src="' + videoUrl + '"></video>';
     } else {
       setStatus('Gerado! Verifique o painel do fal.ai');
     }
