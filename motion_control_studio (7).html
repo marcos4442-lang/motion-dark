@@ -853,14 +853,6 @@ function handleVid(e) {
   document.getElementById('vidHint').textContent = (vidFile.size / 1024 / 1024).toFixed(1) + ' MB';
 }
 
-function toBase64(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
-  });
-}
 
 function setStatus(msg, isError) {
   const el = document.getElementById('statusMsg');
@@ -924,24 +916,13 @@ async function pollResult(requestId, apiKey) {
   setStatus('Tempo esgotado — verifique o painel no fal.ai', true);
 }
 
-async function uploadToFal(file, apiKey) {
-  const res = await fetch('https://rest.fal.run/storage/upload', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Key ' + apiKey,
-      'Content-Type': file.type,
-      'X-Fal-File-Name': file.name
-    },
-    body: file
+async function fileToDataUrl(file) {
+  return new Promise((res, rej) => {
+    const r = new FileReader();
+    r.onload = () => res(r.result);
+    r.onerror = rej;
+    r.readAsDataURL(file);
   });
-
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error('Upload falhou: ' + (err.detail || err.message || res.status));
-  }
-
-  const data = await res.json();
-  return data.url;
 }
 
 async function generate() {
@@ -955,25 +936,26 @@ async function generate() {
 
   const btn = document.getElementById('genBtn');
   btn.disabled = true;
-  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M5 3l14 9-14 9V3z"/></svg> Enviando…';
+  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M5 3l14 9-14 9V3z"/></svg> Preparando…';
   startProgress();
 
   try {
-    setStatus('Enviando imagem…');
-    const imgUrl = await uploadToFal(imgFile, apiKey);
+    setStatus('Lendo imagem…');
+    const imgData = await fileToDataUrl(imgFile);
 
-    setStatus('Enviando vídeo de referência…');
-    const vidUrl = await uploadToFal(vidFile, apiKey);
+    setStatus('Lendo vídeo…');
+    const vidData = await fileToDataUrl(vidFile);
 
-    setStatus('Iniciando geração…');
+    setStatus('Enviando para fal.ai…');
 
     const body = {
-      image_url: imgUrl,
-      video_url: vidUrl,
-      prompt: prompt || '',
+      image_url: imgData,
+      video_url: vidData,
       duration: parseInt(duration),
       character_orientation: orientation
     };
+
+    if (prompt) body.prompt = prompt;
 
     if (negOn) {
       const neg = document.getElementById('negPrompt').value.trim();
@@ -988,15 +970,15 @@ async function generate() {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || err.message || 'Erro ' + res.status);
+      throw new Error(err.detail || err.message || JSON.stringify(err) || 'Erro ' + res.status);
     }
 
     const data = await res.json();
     const requestId = data.request_id;
-    if (!requestId) throw new Error('Sem request_id na resposta');
+    if (!requestId) throw new Error('Sem request_id na resposta: ' + JSON.stringify(data));
 
     btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M5 3l14 9-14 9V3z"/></svg> Gerando…';
-    setStatus('Na fila · ID: ' + requestId);
+    setStatus('Na fila · aguardando processamento…');
     await pollResult(requestId, apiKey);
   } catch (err) {
     endProgress();
