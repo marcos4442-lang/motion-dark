@@ -916,13 +916,29 @@ async function pollResult(requestId, apiKey) {
   setStatus('Tempo esgotado — verifique o painel no fal.ai', true);
 }
 
-async function fileToDataUrl(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = () => res(r.result);
-    r.onerror = rej;
-    r.readAsDataURL(file);
+async function uploadFile(file, apiKey) {
+  // Get presigned upload URL from fal.ai
+  const initRes = await fetch('https://rest.fal.run/storage/upload/initiate', {
+    method: 'POST',
+    headers: {
+      'Authorization': 'Key ' + apiKey,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ file_name: file.name, content_type: file.type })
   });
+
+  if (!initRes.ok) throw new Error('Falha ao iniciar upload (' + initRes.status + ')');
+  const { upload_url, file_url } = await initRes.json();
+
+  // Upload file directly to the presigned URL (no auth header needed)
+  const putRes = await fetch(upload_url, {
+    method: 'PUT',
+    headers: { 'Content-Type': file.type },
+    body: file
+  });
+
+  if (!putRes.ok) throw new Error('Falha no envio do arquivo (' + putRes.status + ')');
+  return file_url;
 }
 
 async function generate() {
@@ -936,27 +952,26 @@ async function generate() {
 
   const btn = document.getElementById('genBtn');
   btn.disabled = true;
-  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M5 3l14 9-14 9V3z"/></svg> Preparando…';
+  btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M5 3l14 9-14 9V3z"/></svg> Enviando…';
   startProgress();
 
   try {
-    setStatus('Lendo imagem…');
-    const imgData = await fileToDataUrl(imgFile);
+    setStatus('Enviando imagem para fal.ai…');
+    const imgUrl = await uploadFile(imgFile, apiKey);
 
-    setStatus('Lendo vídeo…');
-    const vidData = await fileToDataUrl(vidFile);
+    setStatus('Enviando vídeo para fal.ai…');
+    const vidUrl = await uploadFile(vidFile, apiKey);
 
-    setStatus('Enviando para fal.ai…');
+    setStatus('Iniciando geração…');
 
     const body = {
-      image_url: imgData,
-      video_url: vidData,
+      image_url: imgUrl,
+      video_url: vidUrl,
       duration: parseInt(duration),
       character_orientation: orientation
     };
 
     if (prompt) body.prompt = prompt;
-
     if (negOn) {
       const neg = document.getElementById('negPrompt').value.trim();
       if (neg) body.negative_prompt = neg;
@@ -975,7 +990,7 @@ async function generate() {
 
     const data = await res.json();
     const requestId = data.request_id;
-    if (!requestId) throw new Error('Sem request_id na resposta: ' + JSON.stringify(data));
+    if (!requestId) throw new Error('Sem request_id: ' + JSON.stringify(data));
 
     btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M5 3l14 9-14 9V3z"/></svg> Gerando…';
     setStatus('Na fila · aguardando processamento…');
