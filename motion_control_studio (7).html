@@ -711,10 +711,8 @@
     <div class="config-box" style="grid-column: 1 / -1;">
       <span class="field-label">Orientação do personagem</span>
       <div class="orient-wrap">
-        <button class="orient-btn active" onclick="setOrient('0',this)">Frontal</button>
-        <button class="orient-btn" onclick="setOrient('1',this)">Costas</button>
-        <button class="orient-btn" onclick="setOrient('2',this)">Perfil esquerdo</button>
-        <button class="orient-btn" onclick="setOrient('3',this)">Perfil direito</button>
+        <button class="orient-btn active" onclick="setOrient('video',this)">Seguir vídeo (30s)</button>
+        <button class="orient-btn" onclick="setOrient('image',this)">Seguir imagem (10s)</button>
       </div>
     </div>
   </div>
@@ -787,7 +785,7 @@
 </footer>
 
 <script>
-let orientation = '0';
+let orientation = 'video';
 let imgFile = null, vidFile = null, negOn = false;
 
 const costs = {
