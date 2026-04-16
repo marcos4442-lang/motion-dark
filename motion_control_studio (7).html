@@ -784,7 +784,12 @@
   MADE BY MOTION DARK · MOTION CONTROL STUDIO · POWERED BY KLING AI VIA FAL.AI
 </footer>
 
-<script>
+<script type="module">
+import { fal } from 'https://esm.sh/@fal-ai/client@1';
+
+const FAL_KEY = 'ba75c324-91b1-4209-92ef-a671138817c4:d513693d45cd2120b555fae52127eef6';
+fal.config({ credentials: FAL_KEY });
+
 let orientation = 'video';
 let imgFile = null, vidFile = null, negOn = false;
 
@@ -880,67 +885,13 @@ function endProgress() {
   }, 600);
 }
 
-async function pollResult(requestId, apiKey) {
-  for (let i = 0; i < 180; i++) {
-    await new Promise(r => setTimeout(r, 5000));
-    setStatus('Gerando… ' + Math.round((i + 1) * 5) + 's aguardando');
-    try {
-      const res = await fetch('https://queue.fal.run/requests/' + requestId + '/status', {
-        headers: { 'Authorization': 'Key ' + apiKey }
-      });
-      const data = await res.json();
-      if (data.status === 'COMPLETED') {
-        const resData = await fetch('https://queue.fal.run/requests/' + requestId, {
-          headers: { 'Authorization': 'Key ' + apiKey }
-        });
-        const result = await resData.json();
-        const videoUrl = result?.video?.url || result?.data?.video?.url;
-        endProgress();
-        if (videoUrl) {
-          document.getElementById('resultArea').innerHTML = '<video controls autoplay loop style="width:100%;border-radius:8px" src="' + videoUrl + '"></video>';
-        } else {
-          setStatus('Vídeo gerado! ' + JSON.stringify(result).slice(0, 120));
-        }
-        return;
-      }
-      if (data.status === 'FAILED') {
-        endProgress();
-        setStatus('Erro: ' + (data.error || 'falha desconhecida'), true);
-        return;
-      }
-    } catch (err) {}
-  }
-  endProgress();
-  setStatus('Tempo esgotado — verifique o painel no fal.ai', true);
-}
-
-async function uploadFile(file, apiKey) {
-  // Get presigned upload URL from fal.ai
-  const initRes = await fetch('https://rest.fal.run/storage/upload/initiate', {
-    method: 'POST',
-    headers: {
-      'Authorization': 'Key ' + apiKey,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({ file_name: file.name, content_type: file.type })
-  });
-
-  if (!initRes.ok) throw new Error('Falha ao iniciar upload (' + initRes.status + ')');
-  const { upload_url, file_url } = await initRes.json();
-
-  // Upload file directly to the presigned URL (no auth header needed)
-  const putRes = await fetch(upload_url, {
-    method: 'PUT',
-    headers: { 'Content-Type': file.type },
-    body: file
-  });
-
-  if (!putRes.ok) throw new Error('Falha no envio do arquivo (' + putRes.status + ')');
-  return file_url;
+async function uploadFile(file) {
+  setStatus('Enviando ' + file.name + '…');
+  const url = await fal.storage.upload(file);
+  return url;
 }
 
 async function generate() {
-  const apiKey = document.getElementById('apiKey').value.trim();
   const prompt = document.getElementById('prompt').value.trim();
   const model = document.getElementById('modelSelect').value;
   const duration = document.getElementById('durSelect').value;
@@ -954,53 +905,61 @@ async function generate() {
   startProgress();
 
   try {
-    setStatus('Enviando imagem para fal.ai…');
-    const imgUrl = await uploadFile(imgFile, apiKey);
+    setStatus('Enviando imagem…');
+    const imgUrl = await fal.storage.upload(imgFile);
 
-    setStatus('Enviando vídeo para fal.ai…');
-    const vidUrl = await uploadFile(vidFile, apiKey);
+    setStatus('Enviando vídeo…');
+    const vidUrl = await fal.storage.upload(vidFile);
 
-    setStatus('Iniciando geração…');
+    setStatus('Gerando vídeo…');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M5 3l14 9-14 9V3z"/></svg> Gerando…';
 
-    const body = {
+    const input = {
       image_url: imgUrl,
       video_url: vidUrl,
-      duration: parseInt(duration),
-      character_orientation: orientation
+      character_orientation: orientation,
+      keep_original_sound: true
     };
-
-    if (prompt) body.prompt = prompt;
+    if (prompt) input.prompt = prompt;
     if (negOn) {
       const neg = document.getElementById('negPrompt').value.trim();
-      if (neg) body.negative_prompt = neg;
+      if (neg) input.negative_prompt = neg;
     }
 
-    const res = await fetch('https://queue.fal.run/' + falEndpoints[model], {
-      method: 'POST',
-      headers: { 'Authorization': 'Key ' + apiKey, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
+    const result = await fal.subscribe(falEndpoints[model], {
+      input,
+      logs: true,
+      onQueueUpdate: (update) => {
+        if (update.status === 'IN_PROGRESS') {
+          setStatus('Gerando… ' + (update.logs?.slice(-1)[0]?.message || 'aguardando'));
+        }
+      }
     });
 
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.detail || err.message || JSON.stringify(err) || 'Erro ' + res.status);
+    endProgress();
+    const videoUrl = result?.data?.video?.url || result?.video?.url;
+    if (videoUrl) {
+      document.getElementById('resultArea').innerHTML =
+        '<video controls autoplay loop style="width:100%;border-radius:8px" src="' + videoUrl + '"></video>';
+    } else {
+      setStatus('Gerado! Verifique o painel do fal.ai');
     }
-
-    const data = await res.json();
-    const requestId = data.request_id;
-    if (!requestId) throw new Error('Sem request_id: ' + JSON.stringify(data));
-
-    btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M5 3l14 9-14 9V3z"/></svg> Gerando…';
-    setStatus('Na fila · aguardando processamento…');
-    await pollResult(requestId, apiKey);
   } catch (err) {
     endProgress();
-    setStatus('Erro: ' + err.message, true);
+    setStatus('Erro: ' + (err?.message || JSON.stringify(err)), true);
   } finally {
     btn.disabled = false;
     btn.innerHTML = '<svg viewBox="0 0 24 24" style="width:18px;height:18px;fill:currentColor"><path d="M5 3l14 9-14 9V3z"/></svg> Gerar Vídeo Agora';
   }
 }
+
+// Expose to global scope (required for type="module")
+window.generate = generate;
+window.updateCost = updateCost;
+window.setOrient = setOrient;
+window.toggleNeg = toggleNeg;
+window.handleImg = handleImg;
+window.handleVid = handleVid;
 </script>
 </body>
 </html>
